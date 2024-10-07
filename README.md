@@ -16,4 +16,4 @@ Uma das formas de contribuir com o projeto é considerar o pagamento do QRCode m
 
 ## Links
 
-- [Documentação da API do PagSeguro](https://www.api-futebol.com.br/documentacao)
+- [Documentação da API de Futebol](https://www.api-futebol.com.br/documentacao)
