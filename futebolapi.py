@@ -431,24 +431,94 @@ def exemplo():
         print(e)
 
 # Função para calcular a probabilidade de ser campeão ou rebaixado
-def calcular_probabilidades(tabela):
-    #total_times = len(tabela)
-    #total_jogos = 38  # Número total de jogos do Brasileirão
-    campeao = tabela[0]["time"]["nome_popular"]
-    rebaixados = tabela[-4:]
+def calcular_probabilidades(tabela, rodada_atual, total_rodadas=38):
+    pontos_por_vitoria = 3
+    total_jogos_restantes = total_rodadas - rodada_atual
 
-    print(f"Time atual na liderança: {campeao}")
-    print(f"Times na zona de rebaixamento:")
+    # Líder atual
+    lider = tabela[0]
+    time_lider = lider["time"]["nome_popular"]
+    pontos_lider = lider["pontos"]
     
+    print(f"Time atual na liderança: {time_lider}, com {pontos_lider} pontos.")
+    
+    # Zona de rebaixamento (últimos 4 times)
+    rebaixados = tabela[-4:]
+    print("Times na zona de rebaixamento:")
     for time in rebaixados:
         nome_time = time["time"]["nome_popular"]
-        print(f" - {nome_time}")
+        pontos_time = time["pontos"]
+        print(f" - {nome_time}: {pontos_time} pontos")
+
+    # Verifica probabilidades para todos os times
+    print("\nProbabilidades de ser campeão e rebaixado:")
+    for time in tabela:
+        nome_time = time["time"]["nome_popular"]
+        pontos_time = time["pontos"]
+        posicao_time = time["posicao"]
+        
+        # Pontuação máxima possível deste time nas rodadas restantes (considerando vitórias)
+        pontos_maximos_possiveis = pontos_time + (total_jogos_restantes * pontos_por_vitoria)
+        
+        # Cálculo de probabilidade de ser campeão
+        if pontos_maximos_possiveis < pontos_lider:
+            prob_campeao = 0.0  # Sem chance de ser campeão
+        else:
+            prob_campeao = calcular_prob_campeao(total_jogos_restantes, pontos_lider, pontos_time, tabela)
+
+        # Cálculo de probabilidade de ser rebaixado
+        ultimo_time_fora_rebaixamento = tabela[-5]  # 16º colocado
+        pontos_minimos_para_evitar_rebaixamento = ultimo_time_fora_rebaixamento["pontos"]
+        
+        if pontos_time >= pontos_minimos_para_evitar_rebaixamento:
+            prob_rebaixamento = 0.0  # Sem chance de rebaixamento
+        else:
+            diferenca_para_rebaixamento = pontos_minimos_para_evitar_rebaixamento - pontos_time
+            prob_rebaixamento = calcular_prob_rebaixamento(total_jogos_restantes, diferenca_para_rebaixamento, rebaixados, tabela)
+
+        print(f"{nome_time} (posição {posicao_time}): {prob_campeao:.2f}% de chance de ser campeão, {prob_rebaixamento:.2f}% de chance de ser rebaixado.")
+
+def calcular_prob_campeao(jogos_restantes, pontos_lider, pontos_time, tabela):
+    """
+    Calcula a probabilidade de um time ser campeão considerando a pontuação máxima.
+    """
+    max_pontos_time = pontos_time + (jogos_restantes * 3)
     
-    # Aqui você pode incluir uma lógica de cálculo com base em vitórias, aproveitamento, etc.
+    # Se o time pode ultrapassar o líder, calcula a probabilidade
+    if max_pontos_time >= pontos_lider:
+        probabilidade = (max_pontos_time - pontos_lider) / 3 * 50  # 50% de chance ajustada
+        return min(probabilidade, 100.0)
+    
+    return 0.0
+
+def calcular_prob_rebaixamento(jogos_restantes, diferenca_pontos, rebaixados, tabela):
+    """
+    Calcula a probabilidade de um time ser rebaixado considerando o desempenho dos times abaixo.
+    """
+    if diferenca_pontos <= 0:
+        return 0.0  # Sem chance de rebaixamento
+
+    chance_time_perder = 0.5  # Suposição de 50% de chance de o time perder seus jogos restantes
+    probabilidade_rebaixamento = 0.0
+
+    # Verifica quantos times abaixo podem ultrapassar
+    for time in rebaixados:
+        # Se o time que está na zona de rebaixamento pode ultrapassar
+        if time["pontos"] + (jogos_restantes * 3) > tabela[-5]["pontos"]:  # Se ultrapassaria o 16º
+            probabilidade_rebaixamento += 25  # Aumento proporcional
+
+    # Aumenta a chance de rebaixamento proporcionalmente à quantidade de pontos necessários
+    probabilidade_rebaixamento += (diferenca_pontos / (jogos_restantes * 3)) * 100 * chance_time_perder
+
+    return min(probabilidade_rebaixamento, 100.0)
 
 if __name__ == "__main__":
     #exemplo()
 
     service = FutebolAPIService(base_url=BASE_URL, token=TOKEN)
-    tabela_serie_b = service.list_championship_table_by_id(14)
-    calcular_probabilidades(tabela_serie_b)
+    championship_id = 14
+    tabela_serie_b = service.list_championship_table_by_id(championship_id)
+    campeonato = service.list_championship_by_id(championship_id)
+    rodada_atual = campeonato["rodada_atual"]["rodada"]
+    #print(rodada_atual["rodada_atual"]["rodada"])
+    calcular_probabilidades(tabela=tabela_serie_b, rodada_atual=rodada_atual)
